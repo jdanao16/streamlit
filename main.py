@@ -1,85 +1,75 @@
-from st_pages import Page
-import streamlit as st  # web development
-import numpy as np  # np mean, np random
-import pandas as pd  # read csv, df manipulation
-import time  # to simulate a real time data, time loop
-import plotly.express as px  # interactive charts
+import streamlit as st
+import pandas as pd
+import json
 
-Page("main.py", "Home", "🏠")
+from agent import query_agent, create_agent
 
-st.set_page_config(
-    page_title="Welcome To DataApps",
-    page_icon="👋",
-    layout='wide'
-)
 
-st.write("# Welcome to DataApps! 👋")
+def write_response(response_dict: dict):
+    """
+    Write a response from an agent to a Streamlit app.
 
-st.sidebar.success("Above are the applications you can use.")
+    Args:
+        response_dict: The response from the agent.
 
-# read csv from a github repo
-df = pd.read_csv("https://raw.githubusercontent.com/Lexie88rus/bank-marketing-analysis/master/bank.csv")
+    Returns:
+        None.
+    """
 
-# st.set_page_config(
-#     page_title='Real-Time Data Science Dashboard',
-#     page_icon='✅',
-#     layout='wide'
-# )
+    # Check if the response is an answer.
+    if "answer" in response_dict:
+        st.write(response_dict["answer"])
 
-# dashboard title
+    # Check if the response is a bar chart.
+    if "bar" in response_dict:
+        data = response_dict["bar"]
+        df = pd.DataFrame(data)
+        df.set_index("columns", inplace=True)
+        st.bar_chart(df)
 
-st.header("Real-Time / Live Data Science Dashboard")
+    # Check if the response is a line chart.
+    if "line" in response_dict:
+        data = response_dict["line"]
+        df = pd.DataFrame(data)
+        df.set_index("columns", inplace=True)
+        st.line_chart(df)
 
-# top-level filters
+    # Check if the response is a table.
+    if "table" in response_dict:
+        data = response_dict["table"]
+        df = pd.DataFrame(data["data"], columns=data["columns"])
+        st.table(df)
 
-job_filter = st.selectbox("Select the Job", pd.unique(df['job']))
 
-# creating a single-element container.
-placeholder = st.empty()
+def decode_response(response: str) -> dict:
+    """This function converts the string response from the model to a dictionary object.
 
-# dataframe filter
+    Args:
+        response (str): response from the model
 
-df = df[df['job'] == job_filter]
+    Returns:
+        dict: dictionary with response data
+    """
+    return json.loads(response)
 
-# near real-time / live feed simulation
 
-for seconds in range(200):
-    # while True:
+st.title("👨‍💻 Chat with your CSV")
 
-    df['age_new'] = df['age'] * np.random.choice(range(1, 5))
-    df['balance_new'] = df['balance'] * np.random.choice(range(1, 5))
+st.write("Please upload your CSV file below.")
 
-    # creating KPIs
-    avg_age = np.mean(df['age_new'])
+data = st.file_uploader("Upload a CSV")
 
-    count_married = int(df[(df["marital"] == 'married')]['marital'].count() + np.random.choice(range(1, 30)))
+query = st.text_area("Insert your query")
 
-    balance = np.mean(df['balance_new'])
+if st.button("Submit Query", type="primary"):
+    # Create an agent from the CSV file.
+    agent = create_agent(data)
 
-    with placeholder.container():
-        # create three columns
-        kpi1, kpi2, kpi3 = st.columns(3)
+    # Query the agent.
+    response = query_agent(agent=agent, query=query)
 
-        # fill in those three columns with respective metrics or KPIs
-        kpi1.metric(label="Age ⏳", value=round(avg_age), delta=round(avg_age) - 10)
-        kpi2.metric(label="Married Count 💍", value=int(count_married), delta=- 10 + count_married)
-        kpi3.metric(label="A/C Balance ＄", value=f"$ {round(balance, 2)} ",
-                    delta=- round(balance / count_married) * 100)
+    # Decode the response.
+    decoded_response = decode_response(response)
 
-        # create two columns for charts
-
-        fig_col1, fig_col2 = st.columns(2)
-        with fig_col1:
-            st.markdown("### First Chart")
-            fig = px.density_heatmap(data_frame=df, y='age_new', x='marital')
-            st.write(fig)
-        with fig_col2:
-            st.markdown("### Second Chart")
-            fig2 = px.histogram(data_frame=df, x='age_new')
-            st.write(fig2)
-        st.markdown("### Detailed Data View")
-        st.dataframe(df)
-        time.sleep(1)
-    # placeholder.empty()
-
-# ICON SOURCE: https://raw.githubusercontent.com/omnidan/node-emoji/master/lib/emoji.json
+    # Write the response to the Streamlit app.
+    write_response(decoded_response)
