@@ -2,14 +2,16 @@
 from langchain import OpenAI
 from langchain.agents import create_pandas_dataframe_agent
 import pandas as pd
+import streamlit as st
 
 # Setting up the api key
 import environ
 
-env = environ.Env()
-environ.Env.read_env()
+# env = environ.Env()
+# environ.Env.read_env()
 
-API_KEY = env("apikey")
+# API_KEY = env("apikey")
+API_KEY = st.secrets["api_key"]
 
 
 def create_agent(filename: str):
@@ -30,7 +32,7 @@ def create_agent(filename: str):
     df = pd.read_csv(filename, encoding='unicode_escape')
 
     # Create a Pandas DataFrame agent.
-    return create_pandas_dataframe_agent(llm, df, verbose=False)
+    return create_pandas_dataframe_agent(llm, df, verbose=False), df
 
 def query_agent(agent, query):
     """
